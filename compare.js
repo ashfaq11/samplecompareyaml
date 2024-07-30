@@ -10,7 +10,7 @@ const fs   = require('fs');
 // Get document, or throw exception on error
 try {
   const doc1 = yaml.parse(fs.readFileSync(file1, 'utf8'));
-  //console.log(doc1);
+  console.log("doc1 contents:",doc1);
   const doc2 = yaml.parse(fs.readFileSync(file2, 'utf8'));
   //console.log(doc2.featureFlags.flags[0]);
  

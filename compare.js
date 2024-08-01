@@ -1,5 +1,6 @@
-const file1 = "Flags1.yaml";
-const file2 = "Flags2.yaml";
+let file1="../plat/libs/java/sdk-fflags/testing-applications/openfeature-harness-json-yaml/Flags1.yaml"
+let file2="../plat/libs/java/sdk-fflags/testing-applications/openfeature-harness-json-yaml/Flags2.yaml"
+
 const environment = "develop";
 
 const yaml = require('yaml');

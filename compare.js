@@ -1,138 +1,106 @@
-
-
-
-let file1="../plat/libs/java/sdk-fflags/testing-applications/openfeature-harness-json-yaml/Flags1.yaml"
-let file2="../plat/libs/java/sdk-fflags/testing-applications/openfeature-harness-json-yaml/Flags2.yaml"
+const file1 = "Flags1.yaml";
+const file2 = "Flags2.yaml";
+const environment = "develop";
 
 const yaml = require('yaml');
-const fs   = require('fs');
+const axios = require('axios');
+const fs = require('fs');
 
-// Get document, or throw exception on error
 try {
   const doc1 = yaml.parse(fs.readFileSync(file1, 'utf8'));
-  console.log("doc1 contents:",doc1);
   const doc2 = yaml.parse(fs.readFileSync(file2, 'utf8'));
-  //console.log(doc2.featureFlags.flags[0]);
- 
-  let featureFlagsInDoc1= doc1.featureFlags.flags;
-  let featureFlagsInDoc2= doc2.featureFlags.flags;
 
+  const featureFlagsInDoc1 = doc1.featureFlags.flags;
+  const featureFlagsInDoc2 = doc2.featureFlags.flags;
 
-let newAndCommonFlags=[];
+  let newAndCommonFlags = [];
 
+  console.log("For feature flag set 1");
 
+  for (let i = 0; i < featureFlagsInDoc1.length; i++) {
+    const flag1 = featureFlagsInDoc1[i];
 
-for(let i=0;i<featureFlagsInDoc1.length;i++)
-{
+    const commonFlagIndex = featureFlagsInDoc2.findIndex(feature => {
+      return (
+        flag1.flag.name === feature.flag.name
+      );
+    });
 
-
-  let flag1= featureFlagsInDoc1[i]; 
-
-//common flag found 
-
-let commonFlagIndex= featureFlagsInDoc2.findIndex(feature=>flag1.flag.name==feature.flag.name);
-//console.log(commonFlagIndex);
-  if( commonFlagIndex!=-1)
-    {
-      newAndCommonFlags.push({flags:[flag1,featureFlagsInDoc2[commonFlagIndex]],common:true});
+    if (commonFlagIndex !== -1) {
+      newAndCommonFlags.push({ flags: [flag1, featureFlagsInDoc2[commonFlagIndex]], common: true });
+    } else {
+      newAndCommonFlags.push({ flags: [flag1], common: false });
     }
-    else //not found in flags2
-    {
+  }
 
-      newAndCommonFlags.push({flags:[flag1],common:false});
-  
-    }
- 
+  console.log("For feature flag set 2");
 
- 
+  for (let j = 0; j < featureFlagsInDoc2.length; j++) {
+    const flag2 = featureFlagsInDoc2[j];
 
-}
+    const commonFlagIndex = featureFlagsInDoc1.findIndex(feature => {
+      return flag2.flag.name === feature.flag.name;
+    });
 
-console.log("for feature flag set2")
-
-for(let j=0;j<featureFlagsInDoc2.length;j++)
-  {
-  
-  
-    let flag2= featureFlagsInDoc2[j]; 
-    
-    
-  //common flag found 
-
-  let commonFlagIndex= featureFlagsInDoc1.findIndex(feature=>flag2.flag.name==feature.flag.name);
- // console.log(commonFlagIndex);
-  if( commonFlagIndex!=-1)
-    {
-   //   newAndCommonFlags.push({flags:[featureFlagsInDoc1[commonFlagIndex],flag2],common:true});
-    }
-    else //not found in flags2
-      {
-  
-        newAndCommonFlags.push({flags:[flag2],common:false});
-    
+    if( commonFlagIndex!=-1){
+     //   newAndCommonFlags.push({flags:[featureFlagsInDoc1[commonFlagIndex],flag2],common:true});
+      }else /*not found in flags2*/{
+          newAndCommonFlags.push({flags:[flag2],common:false});
       }
-   
-  
-   
-  
   }
+ //console.log(JSON.stringify(newAndCommonFlags, null, 2));
+  console.log("Starting foreach");
 
+  const HARNESS_ACCOUNT_ID = "TSJynUr6SmezTq0oNif7kg";
+  const HARNESS_API_KEY = "6fa26cd8-3cc0-422f-be20-1f4c264e6b38";
+  const HARNESS_PIPELINE_ID = "CommitFlagPipeline";
+  const HARNESS_ORG_ID = "TriNet";
+  const HARNESS_PROJECT_ID = "CloudApps";
+  const HARNESS_TRIGGER_ID = "CommitFlagPipeLineTrigger";
 
-  console.log("starting foreach");
+  newAndCommonFlags.forEach(newAndCommonFlag => {
+    if (newAndCommonFlag.common) {
+      const flag1 = newAndCommonFlag.flags[0].flag;
+      const flag2 = newAndCommonFlag.flags[1].flag;
 
+      const valueInDevelopForFlag1 = flag1.environments.find(env => env.identifier === environment).state;
+      const valueInDevelopForFlag2 = flag2.environments.find(env => env.identifier === environment).state;
 
-  let HARNESS_ACCOUNT_ID="TSJynUr6SmezTq0oNif7kg"
-  let HARNESS_API_KEY="6fa26cd8-3cc0-422f-be20-1f4c264e6b38"
-  let HARNESS_PIPELINE_ID="ui_styling_pipeline"
-  let HARNESS_ORG_ID="TriNet"
-  let HARNESS_PROJECT_ID="CloudApps"
-  let HARNESS_TRIGGER_ID="ui_styling_trigger"
+      if (valueInDevelopForFlag1 !== valueInDevelopForFlag2) {
+        console.log(`Flag ${flag1.name} has changed to: ${valueInDevelopForFlag1}`);
 
-  /*
-curl -X POST -H 'Content-Type: application/json' \
-  --url "https://app.harness.io/gateway/pipeline/api/webhook/custom/v2?accountIdentifier=$HARNESS_ACCOUNT_ID&orgIdentifier=$HARNESS_ORG_ID&projectIdentifier=$HARNESS_PROJECT_ID&pipelineIdentifier=$HARNESS_PIPELINE_ID&triggerIdentifier=$HARNESS_TRIGGER_ID" \
-  -d '{"flagSwitch": "ON"}'
+        const flagPipelineUrl = `https://app.harness.io/gateway/pipeline/api/webhook/custom/v2?accountIdentifier=${HARNESS_ACCOUNT_ID}&orgIdentifier=${HARNESS_ORG_ID}&projectIdentifier=${HARNESS_PROJECT_ID}&pipelineIdentifier=${HARNESS_PIPELINE_ID}&triggerIdentifier=${HARNESS_TRIGGER_ID}`;
 
-  */
-newAndCommonFlags.forEach(newAndCommonFlag=>{
+        const data = {
+          flagName: flag1.name,
+          flagSwitch: valueInDevelopForFlag1,
+        };
 
-if(newAndCommonFlag.common)
-{
-  //console.log("Common:",newAndCommonFlag.flags[0].flag.name,newAndCommonFlag.flags[1].flag.name);
+        const config = {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        };
 
+        // Send feature flag pipeline request if value has changed
+           axios.post(flagPipelineUrl, data, config)
+           .then(response => {
+             console.log(`Feature flag pipeline started for: ${flag1.name}`);
+             console.log(response.data);
+           })
+           .catch(error => {
+             console.error(error);
+           }); 
+      }
+    } else {
+      const newFlag = newAndCommonFlag.flags[0].flag;
+      const valueInDevelopForNewFlag = newFlag.environments.find(env => env.identifier === environment).state;
 
-  let flag1= newAndCommonFlag.flags[0].flag;
-  let flag2= newAndCommonFlag.flags[1].flag;
+      console.log(`New: ${newFlag.name} flag with value: ${valueInDevelopForNewFlag}`);
+    }
+  });
 
-
-  let  valueInDevelopForFlag1= flag1.environments.find(env=>env.identifier==='develop').state;
-  let  valueInDevelopForFlag2= flag2.environments.find(env=>env.identifier==='develop').state;
-
-  if(valueInDevelopForFlag1!=valueInDevelopForFlag2)
-  {
-  console.log('Flag '+flag1.name+' has changed to:   '+ valueInDevelopForFlag1);
-  }
-
-
-
-}
-else
-{
-  let newFlag= newAndCommonFlag.flags[0].flag;
-  let  valueInDevelopForNewFlag= newFlag.environments.find(env=>env.identifier==='develop').state;
- 
-
-  console.log("New:",newFlag.name," flag with value:",valueInDevelopForNewFlag);
-
-}
-
-});
-
-
-console.log("done with foreach");
-
-  
-  
+  console.log("Done with foreach");
 } catch (e) {
   console.log(e);
 }
